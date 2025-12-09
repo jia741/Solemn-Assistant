@@ -1,7 +1,7 @@
 interface Env {
   OPENAI_API_KEY: string;
   OPENAI_MODEL: string;
-  OPENAI_PROMPT_ID?: string;
+  OPENAI_PROMPT?: string;
   OPENAI_VECTOR_STORE_ID?: string;
   ENABLE_DIRECT_CHAT_REPLY?: string;
   LINE_CHANNEL_ACCESS_TOKEN: string;
@@ -125,25 +125,18 @@ function extractQuestion(message: LineTextMessage): string {
 }
 
 async function queryOpenAI(question: string, env: Env): Promise<string> {
-  const promptId = env.OPENAI_PROMPT_ID?.trim();
   const vectorStoreId = env.OPENAI_VECTOR_STORE_ID?.trim();
-
-  const messages = promptId
-    ? [{ role: "user", content: question }]
-    : [
-        { role: "system", content: "你是一個樂於助人的聊天助手。" },
-        { role: "user", content: question },
-      ];
+  const prompt = env.OPENAI_PROMPT?.trim() ||
+    "始終以正體中文作答。僅根據storage儲存的檔案內容來回答問題。對於任何與「皇普莊園社區」無關的問題，請直接回答「本系統僅回應與皇普莊園社區相關的問題」。";
 
   const body: Record<string, unknown> = {
     model: env.OPENAI_MODEL || "gpt-5-nano-2025-08-07",
-    input: messages,
+    input: [
+      { role: "system", content: prompt },
+      { role: "user", content: question },
+    ],
     max_output_tokens: 400,
   };
-
-  if (promptId) {
-    body.prompt_id = promptId;
-  }
 
   if (vectorStoreId) {
     body.tools = [{ type: "file_search" }];
