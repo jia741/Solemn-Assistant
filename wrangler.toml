@@ -20,6 +20,6 @@ head_sampling_rate = 1
 [vars]
 OPENAI_MODEL = "gpt-4.1-mini"
 OPENAI_VECTOR_STORE_ID = "vs_69367e6121c08191b86cf8fbd753ef66"
-LINE_BOT_USER_ID = "U6981c609dae0b1d0f9ae4cf2efa0e0a8"
+LINE_BOT_USER_ID = "Ua230713a2e8c6b0f9ec4e2cecf79b736"
 ENABLE_DIRECT_CHAT_REPLY = "false"
 OPENAI_PROMPT = "始終以正體中文作答。僅根據storage儲存的檔案內容來回答問題。對於任何與「皇普莊園社區」無關的問題，請直接回答「本系統僅回應與皇普莊園社區相關的問題」。"
