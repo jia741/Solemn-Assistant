@@ -2,5 +2,20 @@ name = "solemn-assistant"
 main = "src/index.ts"
 compatibility_date = "2024-11-12"
 
+[observability]
+enabled = true
+head_sampling_rate = 1
+
+[observability.logs]
+enabled = true
+head_sampling_rate = 1
+persist = true
+invocation_logs = true
+
+[observability.traces]
+enabled = false
+persist = true
+head_sampling_rate = 1
+
 [vars]
 OPENAI_MODEL = "gpt-4o-mini"
