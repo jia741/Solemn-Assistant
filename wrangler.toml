@@ -18,4 +18,7 @@ persist = true
 head_sampling_rate = 1
 
 [vars]
-OPENAI_MODEL = "gpt-4o-mini"
+OPENAI_MODEL = "gpt-5-nano-2025-08-07"
+OPENAI_VECTOR_STORE_ID = "pmpt_69368f25b81881909ae38ba86264e315026675978fd3066d"
+LINE_BOT_USER_ID = "@546lqgxe"
+ENABLE_DIRECT_CHAT_REPLY = false
