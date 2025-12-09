@@ -1,6 +1,7 @@
 interface Env {
   OPENAI_API_KEY: string;
   OPENAI_MODEL: string;
+  OPENAI_PROMPT_ID?: string;
   LINE_CHANNEL_ACCESS_TOKEN: string;
   LINE_CHANNEL_SECRET: string;
   LINE_BOT_USER_ID: string;
@@ -108,6 +109,15 @@ function extractQuestion(message: LineTextMessage): string {
 }
 
 async function queryOpenAI(question: string, env: Env): Promise<string> {
+  const promptId = env.OPENAI_PROMPT_ID?.trim();
+
+  const messages = promptId
+    ? [{ role: "user", content: question }]
+    : [
+        { role: "system", content: "你是一個樂於助人的聊天助手。" },
+        { role: "user", content: question },
+      ];
+
   const response = await fetch(OPENAI_API_URL, {
     method: "POST",
     headers: {
@@ -116,10 +126,8 @@ async function queryOpenAI(question: string, env: Env): Promise<string> {
     },
     body: JSON.stringify({
       model: env.OPENAI_MODEL || "gpt-4o-mini",
-      messages: [
-        { role: "system", content: "你是一個樂於助人的聊天助手。" },
-        { role: "user", content: question },
-      ],
+      messages,
+      ...(promptId ? { prompt_id: promptId } : {}),
       max_tokens: 400,
     }),
   });
