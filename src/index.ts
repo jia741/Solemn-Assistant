@@ -98,8 +98,11 @@ function isDirectChat(event: LineEvent): boolean {
 }
 
 function isDirectChatEnabled(env: Env): boolean {
-  const flag = env.ENABLE_DIRECT_CHAT_REPLY?.trim().toLowerCase();
-  return flag === "true" || flag === "1" || flag === "yes";
+  const flag = env.ENABLE_DIRECT_CHAT_REPLY;
+  if (!flag) return false;
+
+  const normalized = flag.trim().toLowerCase();
+  return normalized === "true" || normalized === "1" || normalized === "yes" || normalized === "on";
 }
 
 function isBotMentioned(message: LineTextMessage, botUserId: string): boolean {
