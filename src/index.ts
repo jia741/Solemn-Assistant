@@ -136,7 +136,7 @@ async function queryOpenAI(question: string, env: Env): Promise<string> {
       ];
 
   const body: Record<string, unknown> = {
-    model: env.OPENAI_MODEL || "gpt-4o-mini",
+    model: env.OPENAI_MODEL || "gpt-5-nano-2025-08-07",
     input: messages,
     max_output_tokens: 400,
   };
