@@ -19,6 +19,7 @@
    - `LINE_CHANNEL_SECRET`：LINE Channel secret
    - `LINE_BOT_USER_ID`：機器人自己的 userId（用於辨識被標記）
    - （可選）`OPENAI_MODEL`：預設為 `gpt-4o-mini`
+   - （可選）`OPENAI_PROMPT_ID`：OpenAI 後台已定義的 Prompt ID；未設定時會使用預設系統提示詞「你是一個樂於助人的聊天助手。」
 2. 執行部署：
    ```bash
    npm run deploy
