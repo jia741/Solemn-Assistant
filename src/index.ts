@@ -1,3 +1,5 @@
+import type { ExecutionContext } from "@cloudflare/workers-types";
+
 interface Env {
   OPENAI_API_KEY: string;
   OPENAI_MODEL: string;
@@ -34,10 +36,9 @@ type LineTextMessage = {
 };
 
 const OPENAI_API_URL = "https://api.openai.com/v1/responses" as const;
-const LINE_REPLY_URL = "https://api.line.me/v2/bot/message/reply" as const;
 
 export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     if (request.method !== "POST") {
       return new Response("Method Not Allowed", { status: 405 });
     }
@@ -57,14 +58,13 @@ export default {
       return new Response("Bad Request", { status: 400 });
     }
 
-    const results = await Promise.all(
-      payload.events.map((event) => handleEvent(event, env).catch((err) => ({ ok: false, error: err as Error })))
+    const tasks = payload.events.map((event) =>
+      handleEvent(event, env).catch((error) => {
+        console.error("Error handling event", error);
+      })
     );
 
-    const firstError = results.find((r) => !("ok" in r ? r.ok : true));
-    if (firstError && "error" in firstError) {
-      console.error("Error handling event", firstError.error);
-    }
+    ctx.waitUntil(Promise.all(tasks));
 
     return new Response("OK", { status: 200 });
   },
@@ -84,7 +84,7 @@ async function handleEvent(event: LineEvent, env: Env): Promise<{ ok: boolean }>
   if (!question) return { ok: true };
 
   const answer = await queryOpenAI(question, env);
-  await replyToLine(event.replyToken, answer, env);
+  await pushToLine(event, answer, env);
 
   return { ok: true };
 }
@@ -197,22 +197,29 @@ function extractOpenAIText(data: unknown): string | null {
   return null;
 }
 
-async function replyToLine(replyToken: string, message: string, env: Env): Promise<void> {
-  const response = await fetch(LINE_REPLY_URL, {
+async function pushToLine(event: LineEvent, message: string, env: Env): Promise<void> {
+  const targetId = event.source.userId ?? event.source.groupId ?? event.source.roomId;
+
+  if (!targetId) {
+    console.warn("No target id to push message", event.webhookEventId);
+    return;
+  }
+
+  const response = await fetch("https://api.line.me/v2/bot/message/push", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${env.LINE_CHANNEL_ACCESS_TOKEN}`,
     },
     body: JSON.stringify({
-      replyToken,
+      to: targetId,
       messages: [{ type: "text", text: message }],
     }),
   });
 
   if (!response.ok) {
-    console.error("LINE reply error", response.status, await response.text());
-    throw new Error(`LINE reply failed with status ${response.status}`);
+    console.error("LINE push error", response.status, await response.text());
+    throw new Error(`LINE push failed with status ${response.status}`);
   }
 }
 
