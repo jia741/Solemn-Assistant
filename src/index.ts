@@ -2,6 +2,8 @@ interface Env {
   OPENAI_API_KEY: string;
   OPENAI_MODEL: string;
   OPENAI_PROMPT_ID?: string;
+  OPENAI_VECTOR_STORE_ID?: string;
+  ENABLE_DIRECT_CHAT_REPLY?: string;
   LINE_CHANNEL_ACCESS_TOKEN: string;
   LINE_CHANNEL_SECRET: string;
   LINE_BOT_USER_ID: string;
@@ -31,7 +33,7 @@ type LineTextMessage = {
   };
 };
 
-const OPENAI_API_URL = "https://api.openai.com/v1/chat/completions" as const;
+const OPENAI_API_URL = "https://api.openai.com/v1/responses" as const;
 const LINE_REPLY_URL = "https://api.line.me/v2/bot/message/reply" as const;
 
 export default {
@@ -72,7 +74,9 @@ async function handleEvent(event: LineEvent, env: Env): Promise<{ ok: boolean }>
   if (event.type !== "message") return { ok: true };
   if (!isTextMessage(event.message)) return { ok: true };
 
-  if (!isBotMentioned(event.message, env.LINE_BOT_USER_ID)) {
+  const allowDirectChat = isDirectChat(event) && isDirectChatEnabled(env);
+
+  if (!allowDirectChat && !isBotMentioned(event.message, env.LINE_BOT_USER_ID)) {
     return { ok: true };
   }
 
@@ -87,6 +91,15 @@ async function handleEvent(event: LineEvent, env: Env): Promise<{ ok: boolean }>
 
 function isTextMessage(message: LineEvent["message"]): message is LineTextMessage {
   return typeof message === "object" && message !== null && "type" in message && (message as { type: string }).type === "text";
+}
+
+function isDirectChat(event: LineEvent): boolean {
+  return Boolean(event.source.userId && !event.source.groupId && !event.source.roomId);
+}
+
+function isDirectChatEnabled(env: Env): boolean {
+  const flag = env.ENABLE_DIRECT_CHAT_REPLY?.trim().toLowerCase();
+  return flag === "true" || flag === "1" || flag === "yes";
 }
 
 function isBotMentioned(message: LineTextMessage, botUserId: string): boolean {
@@ -110,6 +123,7 @@ function extractQuestion(message: LineTextMessage): string {
 
 async function queryOpenAI(question: string, env: Env): Promise<string> {
   const promptId = env.OPENAI_PROMPT_ID?.trim();
+  const vectorStoreId = env.OPENAI_VECTOR_STORE_ID?.trim();
 
   const messages = promptId
     ? [{ role: "user", content: question }]
@@ -118,18 +132,28 @@ async function queryOpenAI(question: string, env: Env): Promise<string> {
         { role: "user", content: question },
       ];
 
+  const body: Record<string, unknown> = {
+    model: env.OPENAI_MODEL || "gpt-4o-mini",
+    input: messages,
+    max_output_tokens: 400,
+  };
+
+  if (promptId) {
+    body.prompt_id = promptId;
+  }
+
+  if (vectorStoreId) {
+    body.tools = [{ type: "file_search" }];
+    body.tool_resources = { file_search: { vector_store_ids: [vectorStoreId] } };
+  }
+
   const response = await fetch(OPENAI_API_URL, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${env.OPENAI_API_KEY}`,
     },
-    body: JSON.stringify({
-      model: env.OPENAI_MODEL || "gpt-4o-mini",
-      messages,
-      ...(promptId ? { prompt_id: promptId } : {}),
-      max_tokens: 400,
-    }),
+    body: JSON.stringify(body),
   });
 
   if (!response.ok) {
@@ -137,16 +161,45 @@ async function queryOpenAI(question: string, env: Env): Promise<string> {
     throw new Error(`OpenAI API failed with status ${response.status}`);
   }
 
-  const data = (await response.json()) as {
-    choices: Array<{ message?: { content?: string } }>;
-  };
+  const data = (await response.json()) as unknown;
 
-  const content = data.choices?.[0]?.message?.content?.trim();
+  const content = extractOpenAIText(data);
   if (!content) {
     throw new Error("OpenAI response is empty");
   }
 
   return content.slice(0, 1900);
+}
+
+function extractOpenAIText(data: unknown): string | null {
+  if (!data || typeof data !== "object") return null;
+
+  const outputText = (data as { output_text?: unknown }).output_text;
+  if (typeof outputText === "string" && outputText.trim()) {
+    return outputText.trim();
+  }
+
+  const output = (data as { output?: unknown }).output;
+  if (Array.isArray(output)) {
+    for (const item of output) {
+      if (!item || typeof item !== "object") continue;
+      const content = (item as { content?: unknown }).content;
+      if (!Array.isArray(content)) continue;
+      for (const c of content) {
+        if (c && typeof c === "object" && "text" in c && typeof (c as { text: unknown }).text === "string") {
+          const text = (c as { text: string }).text.trim();
+          if (text) return text;
+        }
+      }
+    }
+  }
+
+  const choiceContent = (data as { choices?: Array<{ message?: { content?: string } }> }).choices?.[0]?.message?.content;
+  if (typeof choiceContent === "string" && choiceContent.trim()) {
+    return choiceContent.trim();
+  }
+
+  return null;
 }
 
 async function replyToLine(replyToken: string, message: string, env: Env): Promise<void> {
