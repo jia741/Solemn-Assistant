@@ -139,8 +139,7 @@ async function queryOpenAI(question: string, env: Env): Promise<string> {
   };
 
   if (vectorStoreId) {
-    body.tools = [{ type: "file_search" }];
-    body.tool_resources = { file_search: { vector_store_ids: [vectorStoreId] } };
+    body.tools = [{ type: "file_search", vector_store_ids: [vectorStoreId] }];
   }
 
   const response = await fetch(OPENAI_API_URL, {
