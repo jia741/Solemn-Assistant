@@ -19,7 +19,7 @@
    - `LINE_CHANNEL_SECRET`：LINE Channel secret
    - `LINE_BOT_USER_ID`：機器人自己的 userId（用於辨識被標記）
    - `ENABLE_DIRECT_CHAT_REPLY`：是否開啟一對一聊天回應（未設置時預設關閉，僅建議在除錯時使用）
-   - （可選）`OPENAI_MODEL`：預設為 `gpt-5-nano-2025-08-07`
+   - （可選）`OPENAI_MODEL`：預設為 `gpt-4.1-mini`
    - （可選）`OPENAI_PROMPT_ID`：OpenAI 後台已定義的 Prompt ID；未設定時會使用預設系統提示詞「你是一個樂於助人的聊天助手。」
    - （可選）`OPENAI_VECTOR_STORE_ID`：已建立的 Vector Store ID，設定後會啟用 file_search 工具
 2. 執行部署：
