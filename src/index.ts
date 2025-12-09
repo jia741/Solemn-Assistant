@@ -84,7 +84,7 @@ async function handleEvent(event: LineEvent, env: Env): Promise<{ ok: boolean }>
   if (!question) return { ok: true };
 
   const answer = await queryOpenAI(question, env);
-  await pushToLine(event, answer, env);
+  await replyToLine(event, answer, env);
 
   return { ok: true };
 }
@@ -130,7 +130,7 @@ async function queryOpenAI(question: string, env: Env): Promise<string> {
     "始終以正體中文作答。僅根據storage儲存的檔案內容來回答問題。對於任何與「皇普莊園社區」無關的問題，請直接回答「本系統僅回應與皇普莊園社區相關的問題」。";
 
   const body: Record<string, unknown> = {
-    model: env.OPENAI_MODEL || "gpt-5-nano-2025-08-07",
+    model: env.OPENAI_MODEL || "gpt-4.1-mini",
     input: [
       { role: "system", content: prompt },
       { role: "user", content: question },
@@ -197,29 +197,29 @@ function extractOpenAIText(data: unknown): string | null {
   return null;
 }
 
-async function pushToLine(event: LineEvent, message: string, env: Env): Promise<void> {
-  const targetId = event.source.userId ?? event.source.groupId ?? event.source.roomId;
+async function replyToLine(event: LineEvent, message: string, env: Env): Promise<void> {
+  const replyToken = event.replyToken;
 
-  if (!targetId) {
-    console.warn("No target id to push message", event.webhookEventId);
+  if (!replyToken) {
+    console.warn("No reply token to respond", event.webhookEventId);
     return;
   }
 
-  const response = await fetch("https://api.line.me/v2/bot/message/push", {
+  const response = await fetch("https://api.line.me/v2/bot/message/reply", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${env.LINE_CHANNEL_ACCESS_TOKEN}`,
     },
     body: JSON.stringify({
-      to: targetId,
+      replyToken,
       messages: [{ type: "text", text: message }],
     }),
   });
 
   if (!response.ok) {
-    console.error("LINE push error", response.status, await response.text());
-    throw new Error(`LINE push failed with status ${response.status}`);
+    console.error("LINE reply error", response.status, await response.text());
+    throw new Error(`LINE reply failed with status ${response.status}`);
   }
 }
 
